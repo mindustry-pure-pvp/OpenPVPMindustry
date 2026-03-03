@@ -4,6 +4,7 @@ import arc.*;
 import arc.graphics.*;
 import arc.graphics.g2d.*;
 import arc.math.*;
+import arc.math.geom.*;
 import arc.scene.style.*;
 import arc.util.*;
 import arc.util.io.*;
@@ -50,6 +51,17 @@ public class UnitPayload implements Payload{
     @Override
     public void update(@Nullable Unit unitHolder, @Nullable Building buildingHolder){
         unit.type.updatePayload(unit, unitHolder, buildingHolder);
+
+        // When the unit is kept in the group (unitPayloadUnitUpdate rule), force its position to match the carrier
+        if(unitHolder != null && Vars.state.rules.unitPayloadUnitUpdate && unit.inPayload){
+            unit.set(unitHolder.x, unitHolder.y);
+            // Inherit carrier's velocity so bullets are fired with correct velocity
+            unit.vel.set(unitHolder.vel);
+            // Ensure physics mass stays at 0 (physref may be initialized after add())
+            if(unit.physref != null && unit.physref.body.mass != 0f){
+                unit.physref.body.mass = 0f;
+            }
+        }
     }
 
     @Override
@@ -72,6 +84,19 @@ public class UnitPayload implements Payload{
         write.b(payloadUnit);
         write.b(unit.classId());
         unit.write(write);
+    }
+
+    @Override
+    public void remove(){
+        // When the carrier is removed and unitPayloadUnitUpdate is enabled, restore the carried unit's state
+        if(Vars.state.rules.unitPayloadUnitUpdate && unit.inPayload){
+            if(unit.physref != null){
+                unit.physref.body.mass = unit.mass();
+            }
+            unit.elevation = 0f;
+            unit.inPayload = false;
+            // Unit is already in the group, nothing else needed
+        }
     }
 
     @Override
@@ -123,7 +148,9 @@ public class UnitPayload implements Payload{
         }
 
         //cannot dump when there's a lot of overlap going on
-        if(!unit.type.flying && Units.count(unit.x, unit.y, unit.physicSize() * 1.05f, o -> o.isGrounded() && (o.type.allowLegStep == unit.type.allowLegStep)) > 0){
+        // When unitPayloadUnitUpdate is enabled, exclude the unit itself from the count (it's already in the group)
+        int maxOverlap = (Vars.state.rules.unitPayloadUnitUpdate && unit.inPayload) ? 1 : 0;
+        if(!unit.type.flying && Units.count(unit.x, unit.y, unit.physicSize() * 1.05f, o -> o.isGrounded() && (o.type.allowLegStep == unit.type.allowLegStep)) > maxOverlap){
             return false;
         }
 
@@ -132,7 +159,17 @@ public class UnitPayload implements Payload{
 
         //prevents stacking
         unit.vel.add(Mathf.range(0.5f), Mathf.range(0.5f));
-        unit.add();
+
+        if(Vars.state.rules.unitPayloadUnitUpdate && unit.inPayload){
+            // Unit is already in the group, just restore its state
+            if(unit.physref != null){
+                unit.physref.body.mass = unit.mass();
+            }
+            unit.elevation = 0f;
+            unit.inPayload = false;
+        } else {
+            unit.add();
+        }
         unit.unloaded();
         Events.fire(new UnitUnloadEvent(unit));
         Units.notifyUnitSpawn(unit);

@@ -61,6 +61,8 @@ abstract class UnitComp implements Healthc, Physicsc, Hitboxc, Statusc, Teamc, I
     transient int lastFogPos;
     /** Only used in suicide units */
     transient boolean hasTarget;
+    /** True when this unit is being carried as a payload by another unit and unitPayloadUnitUpdate rule is enabled. */
+    transient boolean inPayload;
     private transient float resupplyTime = Mathf.random(10f);
     private transient boolean wasPlayer;
     private transient boolean wasHealed;
@@ -414,8 +416,8 @@ abstract class UnitComp implements Healthc, Physicsc, Hitboxc, Statusc, Teamc, I
     @Override
     @Replace
     public boolean canShoot(){
-        //cannot shoot while boosting
-        return !disarmed && !(type.canBoost && isFlying());
+        //cannot shoot while boosting, but allow shooting when carried as payload
+        return !disarmed && !(type.canBoost && isFlying() && !inPayload);
     }
 
     public boolean isEnemy(){
@@ -468,8 +470,11 @@ abstract class UnitComp implements Healthc, Physicsc, Hitboxc, Statusc, Teamc, I
         controller(controller);
     }
 
-    /** @return the collision layer to use for unit physics. Returning anything outside of PhysicsProcess contents will crash the game. */
+    /** @return the collision layer to use for unit physics. Returning anything outside of PhysicsProcess contents will crash the game.
+     *  Returns -1 when the unit is being carried as a payload, to exclude it from physics collision entirely.
+     *  This prevents NaN positions caused by two zero-mass bodies at the same location dividing by zero. */
     public int collisionLayer(){
+        if(inPayload) return -1;
         return type.allowLegStep && type.legPhysicsLayer ? PhysicsProcess.layerLegs : isGrounded() ? PhysicsProcess.layerGround : PhysicsProcess.layerFlying;
     }
 
@@ -640,6 +645,27 @@ abstract class UnitComp implements Healthc, Physicsc, Hitboxc, Statusc, Teamc, I
 
     @Override
     public void update(){
+
+        // If this unit is being carried as a payload by another unit, skip movement/physics/AI updates
+        // Weapons are still updated by WeaponsComp.update()
+        if(inPayload){
+            // Update AI targeting so the unit can aim and shoot while being carried
+            if(!net.client() && !dead && controller instanceof AIController ai){
+                ai.updateTargeting();
+                // Clear invalid attack targets so the unit doesn't get stuck after a target is destroyed
+                if(controller instanceof mindustry.ai.types.CommandAI cmd){
+                    if(cmd.attackTarget != null && ai.invalid(cmd.attackTarget)){
+                        cmd.attackTarget = null;
+                        cmd.targetPos = null;
+                    }
+                }
+            }
+            // Update abilities
+            for(Ability a : abilities){
+                a.update(self());
+            }
+            return;
+        }
 
         type.update(self());
 

@@ -24,6 +24,7 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     @Import float x, y, rotation;
     @Import Team team;
     @Import UnitType type;
+    @Import ItemStack stack;
 
     Seq<Payload> payloads = new Seq<>();
 
@@ -58,6 +59,21 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
             pay.set(x, y, rotation);
             pay.update(self(), null);
         }
+
+        // When unitPayloadUpdate is enabled, supply carried blocks with items from the carrier's inventory
+        if(Vars.state.rules.unitPayloadUpdate && stack.amount > 0 && stack.item != null){
+            Item item = stack.item;
+            for(Payload pay : payloads){
+                if(pay instanceof BuildPayload bp && bp.build.block.hasItems && bp.build.acceptItem(bp.build, item)){
+                    bp.build.handleItem(bp.build, item);
+                    stack.amount--;
+                    if(stack.amount <= 0){
+                        stack.amount = 0;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -77,7 +93,7 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     }
 
     boolean canPickup(Unit unit){
-        return type.pickupUnits && payloadUsed() + unit.hitSize * unit.hitSize <= type.payloadCapacity + 0.001f && unit.team == team() && unit.isAI() && unit.type.allowedInPayloads;
+        return type.pickupUnits && payloadUsed() + unit.hitSize * unit.hitSize <= type.payloadCapacity + 0.001f && unit.team == team() && unit.isAI() && unit.type.allowedInPayloads && !unit.inPayload;
     }
 
     boolean canPickup(Building build){
@@ -93,19 +109,38 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     }
 
     void addPayload(Payload load){
+        // When unitPayloadUnitUpdate is enabled and we're adding a UnitPayload, apply the same ghost logic
+        if(Vars.state.rules.unitPayloadUnitUpdate && load instanceof UnitPayload up){
+            Unit unit = up.unit;
+            if(!unit.isAdded()){
+                unit.add();
+            }
+            if(unit.physref != null){
+                unit.physref.body.mass = 0f;
+            }
+            unit.elevation = unit.type.canBoost ? 0.05f : 0.5f;
+            unit.inPayload = true;
+        }
         payloads.add(load);
     }
 
     void pickup(Unit unit){
-        if(unit.isAdded()) unit.team.data().updateCount(unit.type, 1);
+        if(Vars.state.rules.unitPayloadUnitUpdate){
+            // addPayload will handle adding to group and setting inPayload
+            addPayload(new UnitPayload(unit));
+            Fx.unitPickup.at(unit);
+            Events.fire(new PickupEvent(self(), unit));
+        } else {
+            if(unit.isAdded()) unit.team.data().updateCount(unit.type, 1);
 
-        unit.remove();
-        addPayload(new UnitPayload(unit));
-        Fx.unitPickup.at(unit);
-        if(Vars.net.client()){
-            Vars.netClient.clearRemovedEntity(unit.id);
+            unit.remove();
+            addPayload(new UnitPayload(unit));
+            Fx.unitPickup.at(unit);
+            if(Vars.net.client()){
+                Vars.netClient.clearRemovedEntity(unit.id);
+            }
+            Events.fire(new PickupEvent(self(), unit));
         }
-        Events.fire(new PickupEvent(self(), unit));
     }
 
     void pickup(Building tile){
@@ -160,7 +195,9 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
 
         //can't drop ground units
         //allow stacking for small units for now - otherwise, unit transfer would get annoying
-        if(!u.canPass(World.toTile(x + Tmp.v1.x), World.toTile(y + Tmp.v1.y)) || Units.count(x, y, u.physicSize(), o -> o.isGrounded() && o.hitSize > 14f) > 1){
+        // When unitPayloadUnitUpdate is enabled, the unit is already in the group, so allow 1 extra overlap (itself)
+        int maxOverlap = (Vars.state.rules.unitPayloadUnitUpdate && u.inPayload) ? 2 : 1;
+        if(!u.canPass(World.toTile(x + Tmp.v1.x), World.toTile(y + Tmp.v1.y)) || Units.count(x, y, u.physicSize(), o -> o.isGrounded() && o.hitSize > 14f) > maxOverlap){
             return false;
         }
 
@@ -171,11 +208,22 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
 
         u.set(x + Tmp.v1.x, y + Tmp.v1.y);
         u.rotation(rotation);
-        //reset the ID to a new value to make sure it's synced
-        u.id = EntityGroup.nextId();
-        //decrement count to prevent double increment
-        if(!u.isAdded()) u.team.data().updateCount(u.type, -1);
-        u.add();
+
+        if(Vars.state.rules.unitPayloadUnitUpdate){
+            // Restore physics mass and landing elevation
+            if(u.physref != null){
+                u.physref.body.mass = u.mass();
+            }
+            u.elevation = 0f;
+            u.inPayload = false;
+            // Unit is already in the group, no need to re-add or change ID
+        } else {
+            //reset the ID to a new value to make sure it's synced
+            u.id = EntityGroup.nextId();
+            //decrement count to prevent double increment
+            if(!u.isAdded()) u.team.data().updateCount(u.type, -1);
+            u.add();
+        }
         u.unloaded();
         Events.fire(new PayloadDropEvent(self(), u));
 

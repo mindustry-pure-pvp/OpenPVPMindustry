@@ -68,6 +68,8 @@ public class Rules{
     public boolean randomWaveAI = false;
     /** EXPERIMENTAL! If true, blocks will update in units and share power. */
     public boolean unitPayloadUpdate = false;
+    /** EXPERIMENTAL! If true, units carried as payloads by other units will continue to update, shoot and use abilities. */
+    public boolean unitPayloadUnitUpdate = false;
     /** If true, units' payloads are destroy()ed when the unit is destroyed. */
     public boolean unitPayloadsExplode = false;
     /** Whether cores add to unit limit */
