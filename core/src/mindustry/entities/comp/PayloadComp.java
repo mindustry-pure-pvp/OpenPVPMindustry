@@ -60,6 +60,15 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
             pay.update(self(), null);
         }
 
+        // Remove dead unit payloads
+        for(int i = 0; i < payloads.size; i++){
+            Payload pay = payloads.get(i);
+            if(pay instanceof UnitPayload up && up.unit.dead()){
+                payloads.remove(i);
+                i--;
+            }
+        }
+
         // When unitPayloadUpdate is enabled, supply carried blocks with items from the carrier's inventory
         if(Vars.state.rules.unitPayloadUpdate && stack.amount > 0 && stack.item != null){
             Item item = stack.item;
