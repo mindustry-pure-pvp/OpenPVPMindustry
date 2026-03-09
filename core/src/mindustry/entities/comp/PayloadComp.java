@@ -122,8 +122,10 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
         if(Vars.state.rules.unitPayloadUnitUpdate && load instanceof UnitPayload up){
             Unit unit = up.unit;
             if(!unit.isAdded()){
+                // Unit came from a block payload (not yet in the world); add it and count it.
                 unit.add();
             }
+            // If the unit was already in the group (picked up from the ground), the count stays as-is.
             if(unit.physref != null){
                 unit.physref.body.mass = 0f;
             }
@@ -184,6 +186,17 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
         //drop off payload on an acceptor if possible
         if(on != null && on.build != null && on.build.team == team && on.build.acceptPayload(on.build, payload)){
             Fx.unitDrop.at(on.build);
+            // When unitPayloadUnitUpdate is enabled and a UnitPayload is transferred from a unit carrier to a block,
+            // the unit must be removed from the unit group (it's no longer a live unit, it's a block payload now).
+            if(Vars.state.rules.unitPayloadUnitUpdate && payload instanceof UnitPayload up && up.unit.inPayload){
+                up.unit.inPayload = false;
+                up.unit.elevation = up.unit.type.flying ? 1f : 0f;
+                if(up.unit.physref != null){
+                    up.unit.physref.body.mass = up.unit.mass();
+                }
+                // Remove the unit from the group; remove() also decrements the count (unit is now a block payload).
+                up.unit.remove();
+            }
             on.build.handlePayload(on.build, payload);
             return true;
         }
@@ -219,13 +232,13 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
         u.rotation(rotation);
 
         if(Vars.state.rules.unitPayloadUnitUpdate){
-            // Restore physics mass and landing elevation
+            // Restore physics mass and landing elevation.
+            // The unit is already in the group and already counted; no count change needed.
             if(u.physref != null){
                 u.physref.body.mass = u.mass();
             }
-            u.elevation = 0f;
+            u.elevation = u.type.flying ? 1f : 0f;
             u.inPayload = false;
-            // Unit is already in the group, no need to re-add or change ID
         } else {
             //reset the ID to a new value to make sure it's synced
             u.id = EntityGroup.nextId();

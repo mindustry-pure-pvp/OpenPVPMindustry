@@ -1,0 +1,16 @@
+// Patch: retusa-bullet-no-ground-collision
+// Makes retusa's third weapon bullets ignore ground collisions.
+// This prevents them from hitting the ground and allows them to travel over land.
+name: Retusa Bullet No Ground Collision
+
+unit: {
+  retusa: {
+    weapons.3.bullet.collidesTiles: true
+    weapons.3.bullet.collideFloor: false
+    weapons.3.bullet.collidesGround: true
+    weapons.3.bullet.underwater: false
+    weapons.3.bullet.collidesAir: true
+    weapons.3.bullet.layer: 100
+    weapons.3.bullet.pierceBuilding: false
+  }
+}

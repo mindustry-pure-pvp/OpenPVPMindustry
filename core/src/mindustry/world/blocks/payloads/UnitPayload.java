@@ -93,9 +93,9 @@ public class UnitPayload implements Payload{
             if(unit.physref != null){
                 unit.physref.body.mass = unit.mass();
             }
-            unit.elevation = 0f;
+            unit.elevation = unit.type.flying ? 1f : 0f;
             unit.inPayload = false;
-            // Unit is already in the group, nothing else needed
+            // Unit is already in the group and already counted; nothing else needed.
         }
     }
 
