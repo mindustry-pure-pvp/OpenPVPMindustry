@@ -25,6 +25,7 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     @Import float x, y, rotation;
     @Import Team team;
     @Import UnitType type;
+    @Import ItemStack stack;
 
     Seq<Payload> payloads = new Seq<>();
 
@@ -59,6 +60,30 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
             pay.set(x, y, rotation);
             pay.update(self(), null);
         }
+
+        // Remove dead unit payloads
+        for(int i = 0; i < payloads.size; i++){
+            Payload pay = payloads.get(i);
+            if(pay instanceof UnitPayload up && up.unit.dead()){
+                payloads.remove(i);
+                i--;
+            }
+        }
+
+        // When unitPayloadUpdate is enabled, supply carried blocks with items from the carrier's inventory
+        if(Vars.state.rules.unitPayloadUpdate && stack.amount > 0 && stack.item != null){
+            Item item = stack.item;
+            for(Payload pay : payloads){
+                if(pay instanceof BuildPayload bp && bp.build.block.hasItems && bp.build.acceptItem(bp.build, item)){
+                    bp.build.handleItem(bp.build, item);
+                    stack.amount--;
+                    if(stack.amount <= 0){
+                        stack.amount = 0;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     @Override
@@ -78,7 +103,7 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     }
 
     boolean canPickup(Unit unit){
-        return type.pickupUnits && payloadUsed() + unit.hitSize * unit.hitSize <= type.payloadCapacity + 0.001f && unit.team == team() && unit.isAI() && unit.type.allowedInPayloads;
+        return type.pickupUnits && payloadUsed() + unit.hitSize * unit.hitSize <= type.payloadCapacity + 0.001f && unit.team == team() && unit.isAI() && unit.type.allowedInPayloads && !unit.inPayload;
     }
 
     boolean canPickup(Building build){
@@ -94,20 +119,40 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
     }
 
     void addPayload(Payload load){
+        // When unitPayloadUnitUpdate is enabled and we're adding a UnitPayload, apply the same ghost logic
+        if(Vars.state.rules.unitPayloadUnitUpdate && load instanceof UnitPayload up){
+            Unit unit = up.unit;
+            if(!unit.isAdded()){
+                // Unit came from a block payload (not yet in the world); add it and count it.
+                unit.add();
+            }
+            // If the unit was already in the group (picked up from the ground), the count stays as-is.
+            if(unit.physref != null){
+                unit.physref.body.mass = 0f;
+            }
+            unit.elevation = unit.type.canBoost ? 0.05f : 0.5f;
+            unit.inPayload = true;
+        }
         payloads.add(load);
     }
 
     void pickup(Unit unit){
-        if(unit.isAdded()) unit.team.data().updateCount(unit.type, 1);
+        if(Vars.state.rules.unitPayloadUnitUpdate){
+            // addPayload will handle adding to group and setting inPayload
+            addPayload(new UnitPayload(unit));
+            Fx.unitPickup.at(unit);
+            Events.fire(new PickupEvent(self(), unit));
+        } else {
+            if(unit.isAdded()) unit.team.data().updateCount(unit.type, 1);
 
-        unit.remove();
-        addPayload(new UnitPayload(unit));
-        Fx.unitPickup.at(unit);
-        if(Vars.net.client()){
-            Vars.netClient.clearRemovedEntity(unit.id);
+            unit.remove();
+            addPayload(new UnitPayload(unit));
+            Fx.unitPickup.at(unit);
+            if(Vars.net.client()){
+                Vars.netClient.clearRemovedEntity(unit.id);
+            }
+            Events.fire(new PickupEvent(self(), unit));
         }
-        Sounds.payloadPickup.at(self(), Mathf.random(0.9f, 1.1f));
-        Events.fire(new PickupEvent(self(), unit));
     }
 
     void pickup(Building tile){
@@ -143,6 +188,17 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
         //drop off payload on an acceptor if possible
         if(on != null && on.build != null && on.build.team == team && on.build.acceptPayload(on.build, payload)){
             Fx.unitDrop.at(on.build);
+            // When unitPayloadUnitUpdate is enabled and a UnitPayload is transferred from a unit carrier to a block,
+            // the unit must be removed from the unit group (it's no longer a live unit, it's a block payload now).
+            if(Vars.state.rules.unitPayloadUnitUpdate && payload instanceof UnitPayload up && up.unit.inPayload){
+                up.unit.inPayload = false;
+                up.unit.elevation = up.unit.type.flying ? 1f : 0f;
+                if(up.unit.physref != null){
+                    up.unit.physref.body.mass = up.unit.mass();
+                }
+                // Remove the unit from the group; remove() also decrements the count (unit is now a block payload).
+                up.unit.remove();
+            }
             on.build.handlePayload(on.build, payload);
             return true;
         }
@@ -163,7 +219,9 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
 
         //can't drop ground units
         //allow stacking for small units for now - otherwise, unit transfer would get annoying
-        if(!u.canPass(World.toTile(x + Tmp.v1.x), World.toTile(y + Tmp.v1.y)) || Units.count(x, y, u.physicSize(), o -> o.isGrounded() && o.hitSize > 14f) > 1){
+        // When unitPayloadUnitUpdate is enabled, the unit is already in the group, so allow 1 extra overlap (itself)
+        int maxOverlap = (Vars.state.rules.unitPayloadUnitUpdate && u.inPayload) ? 2 : 1;
+        if(!u.canPass(World.toTile(x + Tmp.v1.x), World.toTile(y + Tmp.v1.y)) || Units.count(x, y, u.physicSize(), o -> o.isGrounded() && o.hitSize > 14f) > maxOverlap){
             return false;
         }
 
@@ -174,11 +232,22 @@ abstract class PayloadComp implements Posc, Rotc, Hitboxc, Unitc{
 
         u.set(x + Tmp.v1.x, y + Tmp.v1.y);
         u.rotation(rotation);
-        //reset the ID to a new value to make sure it's synced
-        u.id = EntityGroup.nextId();
-        //decrement count to prevent double increment
-        if(!u.isAdded()) u.team.data().updateCount(u.type, -1);
-        u.add();
+
+        if(Vars.state.rules.unitPayloadUnitUpdate){
+            // Restore physics mass and landing elevation.
+            // The unit is already in the group and already counted; no count change needed.
+            if(u.physref != null){
+                u.physref.body.mass = u.mass();
+            }
+            u.elevation = u.type.flying ? 1f : 0f;
+            u.inPayload = false;
+        } else {
+            //reset the ID to a new value to make sure it's synced
+            u.id = EntityGroup.nextId();
+            //decrement count to prevent double increment
+            if(!u.isAdded()) u.team.data().updateCount(u.type, -1);
+            u.add();
+        }
         u.unloaded();
         Sound dropSound =
             payload.size() <= 12f ? Sounds.payloadDrop1 :

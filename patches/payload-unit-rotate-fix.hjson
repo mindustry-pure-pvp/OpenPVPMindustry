@@ -1,0 +1,138 @@
+// Patch: payload-unit-rotate-fix
+// Fixes shooting display for units carried as payload by unmodified clients.
+//
+// Problem: When a unit is carried as payload, its rotation is locked to the carrier's rotation.
+// The unmodified client checks if the unit is facing the target within shootCone degrees before
+// displaying a shot. Since the carried unit can't rotate freely, this check often fails.
+//
+// Fix: Set rotate=true for all non-rotating weapons of all units that can be carried.
+// This makes weapons rotate independently of the unit, so the unit can shoot in any direction
+// regardless of its locked rotation.
+//
+// Note: This only affects the DISPLAY of shots on unmodified clients.
+// The actual shooting logic on the modified server is handled by the inPayload check.
+
+name: Payload Unit Rotate Fix
+
+unit: {
+  // --- Ground Attack Units ---
+
+  dagger: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  mace: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  fortress: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  scepter: {
+    // weapon 0 (mirror=true, non-rotating) → indices 0 and 1
+    // weapons 1 and 2 have rotate=true, so they are NOT affected by this bug
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  reign: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // --- Ground Support Units (canBoost=true, also affected by Bug 1) ---
+
+  nova: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  pulsar: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  quasar: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  vela: {
+    // weapon 0 (mirror=false, non-rotating continuous laser) → index 0 only
+    // weapon 1 is RepairBeamWeapon (mirror=true) → indices 1 and 2
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+    weapons.2.rotate: true
+  }
+
+  // --- Ground Legs Units ---
+
+  atrax: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // spiroct, arkyid, toxopid all have rotate=true weapons - NOT affected by this bug
+
+  corvus: {
+    // 1 weapon def (mirror=false) → index 0 only
+    weapons.0.rotate: true
+  }
+
+  // --- Air Units ---
+
+  flare: {
+    // 1 weapon def (mirror=false) → index 0 only
+    weapons.0.rotate: true
+  }
+
+  // horizon already has rotate=true
+  // zenith has rotate=true weapons - NOT affected
+  // antumbra has rotate=true weapons - NOT affected
+  // eclipse - check needed
+
+  poly: {
+    // 1 weapon def (mirror=true) → indices 0 and 1
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // mega has rotate=true weapons - NOT affected
+  // quad has rotate=true weapons - NOT affected
+  // oct - check needed
+
+  // --- Ground Factory Units (can be carried) ---
+
+  crawler: {
+    weapons.0.rotate: true
+  }
+
+  // --- Core Units (can be carried) ---
+
+  alpha: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  beta: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  gamma: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+}

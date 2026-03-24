@@ -1,0 +1,18 @@
+// Patch: Payload boost
+
+name: Oct payload boost
+
+unit: {
+  // 7.5 * 7.5 * 64
+  oct: {
+    payloadCapacity: 3600
+  }
+  // 4.5
+  quell: {
+    payloadCapacity: 1296
+  }
+  // 8
+  disrupt: {
+    payloadCapacity: 4096
+  }
+}
