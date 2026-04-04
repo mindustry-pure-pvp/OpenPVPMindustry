@@ -439,7 +439,7 @@ public class Weapon implements Cloneable{
         mount.warmup >= minWarmup && //must be warmed up
         velLen >= minShootVelocity && //check velocity requirements
         (mount.reload <= 0.0001f || (alwaysContinuous && mount.bullet == null)) && //reload has to be 0, or it has to be an always-continuous weapon
-        (alwaysShooting || Angles.within(rotate ? mount.rotation : unit.rotation + baseRotation, mount.targetRotation, shootCone)) //has to be within the cone
+        (alwaysShooting || unit.inPayload || Angles.within(rotate ? mount.rotation : unit.rotation + baseRotation, mount.targetRotation, shootCone)) //has to be within the cone; inPayload units can always shoot regardless of rotation
         ){
             shoot(unit, mount, bulletX, bulletY, shootAngle);
 
@@ -461,7 +461,10 @@ public class Weapon implements Cloneable{
     }
 
     protected float bulletRotation(Unit unit, WeaponMount mount, float bulletX, float bulletY){
-        return rotate ? unit.rotation + mount.rotation : Angles.angle(bulletX, bulletY, mount.aimX, mount.aimY) + (unit.rotation - unit.angleTo(mount.aimX, mount.aimY)) + baseRotation;
+        if(rotate) return unit.rotation + mount.rotation;
+        // For inPayload units, shoot directly toward the aim point without unit rotation correction
+        if(unit.inPayload) return Angles.angle(bulletX, bulletY, mount.aimX, mount.aimY) + baseRotation;
+        return Angles.angle(bulletX, bulletY, mount.aimX, mount.aimY) + (unit.rotation - unit.angleTo(mount.aimX, mount.aimY)) + baseRotation;
     }
 
     protected void shoot(Unit unit, WeaponMount mount, float shootX, float shootY, float rotation){

@@ -1,0 +1,121 @@
+// Patch: opvp-unit-update
+// Merges payload-unit-rotate-fix, PayloadCapacityBoost, and retusa-bullet-no-ground-collision
+// into a single comprehensive unit update patch for OPVP (Optimized PvP)
+
+name: OPVP Unit Update
+
+unit: {
+  // --- From payload-unit-rotate-fix ---
+  // Ground Attack Units
+  dagger: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  mace: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  fortress: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  scepter: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  reign: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // Ground Support Units (canBoost=true, also affected by Bug 1)
+  nova: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  pulsar: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  quasar: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  vela: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+    weapons.2.rotate: true
+  }
+
+  // Ground Legs Units
+  atrax: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  corvus: {
+    weapons.0.rotate: true
+  }
+
+  // Air Units
+  flare: {
+    weapons.0.rotate: true
+  }
+
+  poly: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // Ground Factory Units (can be carried)
+  crawler: {
+    weapons.0.rotate: true
+  }
+
+  // Core Units (can be carried)
+  alpha: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  beta: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  gamma: {
+    weapons.0.rotate: true
+    weapons.1.rotate: true
+  }
+
+  // --- From PayloadCapacityBoost ---
+  oct: {
+    payloadCapacity: 3600
+  }
+
+  quell: {
+    payloadCapacity: 1296
+  }
+
+  disrupt: {
+    payloadCapacity: 4096
+  }
+
+  // --- From retusa-bullet-no-ground-collision ---
+  retusa: {
+    weapons.3.bullet.collidesTiles: true
+    weapons.3.bullet.collideFloor: false
+    weapons.3.bullet.collidesGround: true
+    weapons.3.bullet.underwater: false
+    weapons.3.bullet.collidesAir: true
+    weapons.3.bullet.layer: 100
+    weapons.3.bullet.pierceBuilding: false
+  }
+}

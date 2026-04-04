@@ -171,7 +171,11 @@ public class Teams{
             var payloads = payloadc.payloads();
             for(int i = 0; i < payloads.size; i++){
                 if(payloads.get(i) instanceof UnitPayload payload){
-                    count(payload.unit);
+                    // When unitPayloadUnitUpdate is enabled, ghost payload units are already in Groups.unit
+                    // and will be counted by the main loop; skip them here to avoid double-counting.
+                    if(!payload.unit.isAdded()){
+                        count(payload.unit);
+                    }
                 }
             }
         }
