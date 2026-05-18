@@ -108,6 +108,11 @@ unit: {
     payloadCapacity: 4096
   }
 
+  // --- Zero payload capacity for Evoke ---
+  evoke: {
+    payloadCapacity: 0
+  }
+
   // --- From retusa-bullet-no-ground-collision ---
   retusa: {
     weapons.3.bullet.collidesTiles: true
