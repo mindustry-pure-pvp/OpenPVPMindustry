@@ -418,7 +418,7 @@ public class DesktopInput extends InputHandler{
             if(Core.input.keyDown(Binding.control) && Core.input.keyTap(Binding.select)){
                 Unit on = selectedUnit();
                 var build = selectedControlBuild();
-                if(on != null){
+                if(on != null && !on.inPayload){
                     Call.unitControl(player, on);
                     shouldShoot = false;
                     recentRespawnTimer = 1f;
