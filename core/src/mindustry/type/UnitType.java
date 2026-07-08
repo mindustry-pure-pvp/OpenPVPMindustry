@@ -633,7 +633,7 @@ public class UnitType extends UnlockableContent implements Senseable{
     }
 
     public boolean targetable(Unit unit, Team targeter){
-        return targetable || (vulnerableWithPayloads && unit instanceof Payloadc p && p.hasPayload());
+        return !unit.inPayload && (targetable || (vulnerableWithPayloads && unit instanceof Payloadc p && p.hasPayload()));
     }
 
     public boolean killable(Unit unit){
@@ -641,7 +641,7 @@ public class UnitType extends UnlockableContent implements Senseable{
     }
 
     public boolean hittable(Unit unit){
-        return hittable || (vulnerableWithPayloads && unit instanceof Payloadc p && p.hasPayload());
+        return !unit.inPayload && (hittable || (vulnerableWithPayloads && unit instanceof Payloadc p && p.hasPayload()));
     }
 
     /** Adds all available unit stances based on the unit's current state. This can change based on the command of the unit. */
@@ -2065,3 +2065,4 @@ public class UnitType extends UnlockableContent implements Senseable{
     }
 
 }
+
